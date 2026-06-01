@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0,user-scalable=no">
+<title>拯救大象 - 动物消消乐</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+body{font-family:'PingFang SC','Helvetica Neue',Arial,sans-serif;background:linear-gradient(135deg,#0f0c29,#302b63,#24243e);min-height:100vh;overflow-x:hidden;color:#fff;display:flex;flex-direction:column;align-items:center}
+.bg-layer{position:fixed;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:0;overflow:hidden}
+.bg-layer .leaf{position:absolute;bottom:-20px;animation:floatUp linear infinite}
+@keyframes floatUp{0%{transform:translateY(0) rotate(0deg);opacity:.12}100%{transform:translateY(-110vh) rotate(720deg);opacity:0}}
+.top-bar{width:100%;max-width:480px;display:flex;justify-content:space-between;align-items:center;padding:12px 16px;z-index:10;position:relative}
+.score-badge,.moves-badge{background:rgba(255,255,255,.1);backdrop-filter:blur(12px);border:1px solid rgba(255,255,255,.15);border-radius:14px;padding:6px 14px;font-size:.85rem;font-weight:700;display:flex;align-items:center;gap:6px}
+.score-badge{color:#f7c948}.moves-badge{color:#64ffda}
+.level-badge{font-size:.8rem;color:rgba(255,255,255,.5);letter-spacing:1px;text-transform:uppercase;margin:4px 0 2px;z-index:10;position:relative}
+.targets-bar{width:100%;max-width:480px;display:flex;gap:8px;padding:8px 12px;overflow-x:auto;z-index:10;position:relative;justify-content:center;flex-wrap:wrap}
+.target-item{display:flex;align-items:center;gap:4px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:10px;padding:4px 10px;font-size:.75rem;white-space:nowrap;transition:all .3s}
+.target-item.done{opacity:.4;text-decoration:line-through;border-color:rgba(76,175,80,.3);background:rgba(76,175,80,.08)}
+.t-icon{width:22px;height:22px;display:inline-flex;align-items:center;justify-content:center}
+.t-count{font-weight:700;color:#f7c948}
+.grid-wrap{position:relative;z-index:10;margin:10px auto;padding:6px;background:rgba(255,255,255,.04);border-radius:18px;border:1px solid rgba(255,255,255,.08);backdrop-filter:blur(6px)}
+#grid{display:grid;gap:4px;padding:4px}
+.cell{aspect-ratio:1;border-radius:12px;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:transform .12s,box-shadow .12s;position:relative;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.08)}
+.cell:active{transform:scale(.93)}
+.cell.selected{transform:scale(1.08);box-shadow:0 0 16px rgba(255,200,50,.6);border-color:rgba(255,200,50,.5);z-index:2}
+.cell.matching{animation:matchPop .3s ease}
+@keyframes matchPop{0%{transform:scale(1)}50%{transform:scale(1.18)}100%{transform:scale(0)}}
+.cell.swapping{transition:transform .18s ease}
+.cell.falling{animation:fallIn .25s ease-out}
+@keyframes fallIn{0%{transform:translateY(-40px);opacity:0}100%{transform:translateY(0);opacity:1}}
+.hint-bar{font-size:.78rem;color:#aaa;margin:6px 0 2px;z-index:10;position:relative;min-height:20px;text-align:center;transition:color .2s}
+.overlay{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.7);backdrop-filter:blur(12px);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:100;opacity:0;pointer-events:none;transition:opacity .35s}
+.overlay.show{opacity:1;pointer-events:auto}
+.overlay-card{background:linear-gradient(145deg,#1a1a3e,#2a2a5e);border:1px solid rgba(255,255,255,.1);border-radius:24px;padding:36px 30px;text-align:center;max-width:340px;width:90%;transform:scale(.85);transition:transform .35s}
+.overlay.show .overlay-card{transform:scale(1)}
+.overlay-icon{font-size:3.5rem;margin-bottom:12px;display:block}
+.overlay-title{font-size:1.4rem;font-weight:800;margin-bottom:8px}
+.overlay-text{font-size:.9rem;color:#aaa;margin-bottom:20px;line-height:1.5}
+.btn{padding:12px 32px;border:none;border-radius:14px;font-size:1rem;font-weight:700;cursor:pointer;transition:transform .15s,box-shadow .15s;margin:6px}
+.btn:active{transform:scale(.96)}
+.btn-primary{background:linear-gradient(135deg,#f7c948,#ff9800);color:#1a1a2e;box-shadow:0 4px 20px rgba(247,201,72,.3)}
+.btn-danger{background:linear-gradient(135deg,#ff6b35,#e74c3c);color:#fff;box-shadow:0 4px 20px rgba(255,107,53,.3)}
+.btn-ghost{background:rgba(255,255,255,.08);color:#aaa;border:1px solid rgba(255,255,255,.15)}
+.confetti{position:fixed;top:-20px;width:8px;height:8px;z-index:200;animation:confettiFall linear forwards;border-radius:2px}
+@keyframes confettiFall{0%{transform:translateY(0) rotate(0deg);opacity:1}100%{transform:translateY(110vh) rotate(720deg);opacity:0}}
+.sound-toggle{position:fixed;top:12px;right:12px;z-index:200;font-size:1.4rem;background:rgba(255,255,255,.1);border:none;border-radius:50%;width:36px;height:36px;display:flex;align-items:center;justify-content:center;cursor:pointer;backdrop-filter:blur(10px);color:#fff}
+.combo-pop{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);font-size:2rem;font-weight:900;color:#f7c948;text-shadow:0 0 20px rgba(247,201,72,.6);pointer-events:none;z-index:300;animation:comboPop .8s ease-out forwards}
+@keyframes comboPop{0%{transform:translate(-50%,-50%) scale(.5);opacity:1}100%{transform:translate(-50%,-50%) scale(1.5) translateY(-40px);opacity:0}}
+</style>
+</head>
+<body>
+<div class="bg-layer" id="bgLayer"></div>
+<button class="sound-toggle" id="soundBtn" title="Sound">&#x1F50A;</button>
+<div class="top-bar">
+  <div class="score-badge" id="scoreBox">0 </div>
+  <div class="moves-badge">&#x1F525; <span id="movesCount">0</span></div>
+</div>
+<div class="level-badge" id="levelBadge">第 1 关</div>
+<div class="targets-bar" id="targetItems"></div>
+<div class="hint-bar" id="hintText"></div>
+<div class="grid-wrap"><div id="grid"></div></div>
+
+<div class="overlay show" id="startOverlay">
+  <div class="overlay-card">
+    <div class="overlay-icon" id="startIcon"></div>
+    <div class="overlay-title">拯救大象</div>
+    <div class="overlay-text">动物们走失了，<br>消除相同动物帮助大象重获自由！</div>
+    <button class="btn btn-primary" id="startBtn">开始冒险</button>
+  </div>
+</div>
+<div class="overlay" id="winOverlay">
+  <div class="overlay-card">
+    <div class="overlay-icon" id="winIcon"></div>
+    <div class="overlay-title" id="winTitle"></div>
+    <div class="overlay-text" id="winText"></div>
+    <button class="btn btn-primary" id="winBtn">下一关</button>
+  </div>
+</div>
+<div class="overlay" id="failOverlay">
+  <div class="overlay-card">
+    <div class="overlay-icon"></div>
+    <div class="overlay-title">步数用完了！</div>
+    <div class="overlay-text">别放弃，再试一次吧！</div>
+    <button class="btn btn-primary" id="retryBtn">再来一次</button>
+    <button class="btn btn-ghost" id="giveUpBtn">放弃</button>
+  </div>
+</div>
+<div class="overlay" id="finalOverlay">
+  <div class="overlay-card">
+    <div class="overlay-icon"></div>
+    <div class="overlay-title">大象成功被拯救！</div>
+    <div class="overlay-text">所有动物都回家了，<br>大象现在很安全，谢谢你！</div>
+    <button class="btn btn-primary" id="restartBtn">再玩一次</button>
+  </div>
+</div>
+
+<script>
+(function(){
+var COLS=7,ROWS=7;
+var LEVELS=[
+{name:'第 1 关',cols:7,rows:7,moves:30,targets:[
+{icon:'bear',name:'小熊',count:12,color:'#E8A87C'},
+{icon:'tiger',name:'老虎',count:10,color:'#F8B500'}
+],types:['bear','tiger','rabbit','cat','dog']},
+{name:'第 2 关',cols:7,rows:7,moves:28,targets:[
+{icon:'bear',name:'小熊',count:18,color:'#E8A87C'},
+{icon:'tiger',name:'老虎',count:15,color:'#F8B500'},
+{icon:'wolf',name:'大灰狼',count:12,color:'#7D8593'},
+{icon:'fox',name:'狐狸',count:8,color:'#FF6B35'},
+{icon:'horse',name:'小马',count:8,color:'#C97D60'}
+],types:['bear','tiger','wolf','fox','horse','rabbit','cat','dog','pig','monkey']}
+];
+
+var ICONS={
+bear:'<svg viewBox="0 0 100 100" width="80%" height="80%"><defs><radialGradient id="bearG" cx="50%" cy="45%"><stop offset="0%" stop-color="#F5CCA1"/><stop offset="100%" stop-color="#C8825E"/></radialGradient></defs><ellipse cx="50" cy="58" rx="34" ry="32" fill="url(#bearG)"/><circle cx="36" cy="42" r="6" fill="#fff" opacity=".5"/><circle cx="64" cy="42" r="6" fill="#fff" opacity=".5"/><circle cx="38" cy="44" r="4.5" fill="#4A3728"/><circle cx="62" cy="44" r="4.5" fill="#4A3728"/><circle cx="50" cy="56" r="5" fill="#4A3728"/><ellipse cx="50" cy="68" rx="12" ry="7" fill="#C8825E"/><path d="M22,36 Q18,18 34,30" fill="#C8825E" stroke="#A06848" stroke-width="1.5"/><path d="M78,36 Q82,18 66,30" fill="#C8825E" stroke="#A06848" stroke-width="1.5"/><circle cx="26" cy="34" r="6" fill="#F5CCA1"/><circle cx="74" cy="34" r="6" fill="#F5CCA1"/><path d="M46,68 Q50,74 54,68" stroke="#4A3728" stroke-width="1.5" fill="none"/></svg>',
+tiger:'<svg viewBox="0 0 100 100" width="80%" height="80%"><defs><radialGradient id="tigerG" cx="50%" cy="45%"><stop offset="0%" stop-color="#FFD54F"/><stop offset="100%" stop-color="#E8921E"/></radialGradient></defs><ellipse cx="50" cy="56" rx="32" ry="30" fill="url(#tigerG)"/><polygon points="26,40 14,24 36,34" fill="#E8921E" stroke="#333" stroke-width="1"/><polygon points="74,40 86,24 64,34" fill="#E8921E" stroke="#333" stroke-width="1"/><line x1="20" y1="28" x2="30" y2="38" stroke="#333" stroke-width="1.5"/><line x1="80" y1="28" x2="70" y2="38" stroke="#333" stroke-width="1.5"/><circle cx="40" cy="48" r="5.5" fill="#FFF"/><circle cx="60" cy="48" r="5.5" fill="#FFF"/><circle cx="41" cy="49" r="3" fill="#333"/><circle cx="61" cy="49" r="3" fill="#333"/><circle cx="41" cy="49" r="1.2" fill="#FFF"/><circle cx="61" cy="49" r="1.2" fill="#FFF"/><ellipse cx="50" cy="59" rx="6" ry="4" fill="#333"/><path d="M44,66 Q50,72 56,66" stroke="#333" stroke-width="1.5" fill="none"/><ellipse cx="50" cy="72" rx="14" ry="8" fill="#FFD54F"/><ellipse cx="50" cy="70" rx="10" ry="5" fill="#FFF" opacity=".3"/></svg>',
+wolf:'<svg viewBox="0 0 100 100" width="80%" height="80%"><defs><radialGradient id="wolfG" cx="50%" cy="45%"><stop offset="0%" stop-color="#A0AAB8"/><stop offset="100%" stop-color="#6B7585"/></radialGradient></defs><ellipse cx="50" cy="56" rx="30" ry="28" fill="url(#wolfG)"/><polygon points="24,42 10,26 36,36" fill="#8A95A5" stroke="#5A6575" stroke-width="1"/><polygon points="76,42 90,26 64,36" fill="#8A95A5" stroke="#5A6575" stroke-width="1"/><circle cx="42" cy="50" r="5" fill="#FFE"/><circle cx="58" cy="50" r="5" fill="#FFE"/><circle cx="43" cy="51" r="2.8" fill="#334"/><circle cx="59" cy="51" r="2.8" fill="#334"/><circle cx="43" cy="50" r="1" fill="#FFF"/><circle cx="59" cy="50" r="1" fill="#FFF"/><ellipse cx="50" cy="61" rx="5" ry="3" fill="#334"/><path d="M38,68 Q50,62 62,68" stroke="#5A6575" stroke-width="1.5" fill="none"/></svg>',
+fox:'<svg viewBox="0 0 100 100" width="80%" height="80%"><defs><radialGradient id="foxG" cx="50%" cy="45%"><stop offset="0%" stop-color="#FF8A56"/><stop offset="100%" stop-color="#E85A25"/></radialGradient></defs><polygon points="50,16 30,54 70,54" fill="url(#foxG)"/><polygon points="50,18 36,50 50,44" fill="#FF6B35" opacity=".7"/><polygon points="50,18 64,50 50,44" fill="#FF6B35" opacity=".7"/><circle cx="43" cy="50" r="4.5" fill="#FFF"/><circle cx="57" cy="50" r="4.5" fill="#FFF"/><circle cx="44" cy="51" r="2.5" fill="#333"/><circle cx="58" cy="51" r="2.5" fill="#333"/><ellipse cx="50" cy="60" rx="4" ry="2.5" fill="#333"/><ellipse cx="50" cy="68" rx="16" ry="12" fill="#FF8A56"/><ellipse cx="50" cy="66" rx="11" ry="8" fill="#FFF" opacity=".25"/><path d="M46,74 Q50,80 54,74" stroke="#333" stroke-width="1.5" fill="none"/></svg>',
+horse:'<svg viewBox="0 0 100 100" width="80%" height="80%"><defs><radialGradient id="horseG" cx="50%" cy="45%"><stop offset="0%" stop-color="#D4A06A"/><stop offset="100%" stop-color="#A07040"/></radialGradient></defs><ellipse cx="50" cy="56" rx="32" ry="28" fill="url(#horseG)"/><path d="M72,42 Q86,34 82,50 Q78,56 72,52" fill="#A07040"/><circle cx="40" cy="48" r="5" fill="#FFF"/><circle cx="60" cy="48" r="5" fill="#FFF"/><circle cx="41" cy="49" r="2.8" fill="#333"/><circle cx="61" cy="49" r="2.8" fill="#333"/><circle cx="41" cy="48.5" r="1.1" fill="#FFF"/><circle cx="61" cy="48.5" r="1.1" fill="#FFF"/><ellipse cx="50" cy="60" rx="6" ry="4" fill="#333"/><ellipse cx="50" cy="72" rx="14" ry="7" fill="#8B5E3C"/></svg>',
+rabbit:'<svg viewBox="0 0 100 100" width="80%" height="80%"><defs><radialGradient id="rabG" cx="50%" cy="50%"><stop offset="0%" stop-color="#FFF"/><stop offset="100%" stop-color="#F0E6EE"/></radialGradient></defs><ellipse cx="38" cy="26" rx="9" ry="22" fill="#FFF" stroke="#DDD" stroke-width="1" transform="rotate(-8,38,26)"/><ellipse cx="62" cy="26" rx="9" ry="22" fill="#FFF" stroke="#DDD" stroke-width="1" transform="rotate(8,62,26)"/><circle cx="50" cy="60" r="26" fill="url(#rabG)" stroke="#DDD" stroke-width=".5"/><circle cx="42" cy="54" r="5" fill="#F48AA5"/><circle cx="58" cy="54" r="5" fill="#F48AA5"/><circle cx="43" cy="55" r="2.8" fill="#333"/><circle cx="57" cy="55" r="2.8" fill="#333"/><ellipse cx="50" cy="64" rx="4" ry="3" fill="#F48AA5"/></svg>',
+cat:'<svg viewBox="0 0 100 100" width="80%" height="80%"><defs><radialGradient id="catG" cx="50%" cy="45%"><stop offset="0%" stop-color="#FFCC80"/><stop offset="100%" stop-color="#E8964A"/></radialGradient></defs><circle cx="50" cy="56" r="28" fill="url(#catG)"/><polygon points="26,38 20,18 38,32" fill="#FFCC80" stroke="#E8964A" stroke-width="1"/><polygon points="74,38 80,18 62,32" fill="#FFCC80" stroke="#E8964A" stroke-width="1"/><ellipse cx="41" cy="52" rx="5.5" ry="6.5" fill="#4ECDC4"/><ellipse cx="59" cy="52" rx="5.5" ry="6.5" fill="#4ECDC4"/><circle cx="42" cy="53" r="2.8" fill="#333"/><circle cx="58" cy="53" r="2.8" fill="#333"/><ellipse cx="50" cy="63" rx="4" ry="2.5" fill="#F96"/><path d="M46,68 Q50,73 54,68" stroke="#F96" stroke-width="1.5" fill="none"/></svg>',
+dog:'<svg viewBox="0 0 100 100" width="80%" height="80%"><defs><radialGradient id="dogG" cx="50%" cy="45%"><stop offset="0%" stop-color="#D4A76A"/><stop offset="100%" stop-color="#B8863A"/></radialGradient></defs><circle cx="50" cy="54" r="28" fill="url(#dogG)"/><ellipse cx="28" cy="46" rx="11" ry="17" fill="#C49660" transform="rotate(-10,28,46)"/><ellipse cx="72" cy="46" rx="11" ry="17" fill="#C49660" transform="rotate(10,72,46)"/><circle cx="42" cy="50" r="5" fill="#FFF"/><circle cx="58" cy="50" r="5" fill="#FFF"/><circle cx="43" cy="51" r="2.8" fill="#333"/><circle cx="57" cy="51" r="2.8" fill="#333"/><ellipse cx="50" cy="64" rx="6" ry="4" fill="#333"/></svg>',
+pig:'<svg viewBox="0 0 100 100" width="80%" height="80%"><defs><radialGradient id="pigG" cx="50%" cy="50%"><stop offset="0%" stop-color="#FFD6DD"/><stop offset="100%" stop-color="#FF9AB0"/></radialGradient></defs><circle cx="50" cy="56" r="28" fill="url(#pigG)"/><circle cx="50" cy="64" rx="15" ry="11" fill="#FFBCC8"/><circle cx="44" cy="63" r="3.5" fill="#FF7799"/><circle cx="56" cy="63" r="3.5" fill="#FF7799"/><circle cx="41" cy="52" r="5" fill="#FFF"/><circle cx="59" cy="52" r="5" fill="#FFF"/><circle cx="42" cy="53" r="2.8" fill="#333"/><circle cx="58" cy="53" r="2.8" fill="#333"/><ellipse cx="50" cy="60" rx="4" ry="3" fill="#FF7799"/></svg>',
+monkey:'<svg viewBox="0 0 100 100" width="80%" height="80%"><defs><radialGradient id="monkG" cx="50%" cy="45%"><stop offset="0%" stop-color="#DEB887"/><stop offset="100%" stop-color="#8B6914"/></radialGradient></defs><circle cx="50" cy="54" r="28" fill="url(#monkG)"/><circle cx="50" cy="54" r="22" fill="#C89B5A"/><circle cx="26" cy="42" r="10" fill="#8B6914"/><circle cx="74" cy="42" r="10" fill="#8B6914"/><circle cx="26" cy="41" r="6" fill="#C89B5A"/><circle cx="74" cy="41" r="6" fill="#C89B5A"/><circle cx="42" cy="50" r="5" fill="#FFF"/><circle cx="58" cy="50" r="5" fill="#FFF"/><circle cx="43" cy="51" r="2.8" fill="#333"/><circle cx="57" cy="51" r="2.8" fill="#333"/><ellipse cx="50" cy="62" rx="5" ry="3" fill="#5C3D11"/></svg>'
+};
+
+var board=[],currentLevel=0,score=0,movesLeft=0,selected=null,isProcessing=false,gameActive=true,comboCount=0;
+var targetData={},totalTarget=0,targetFound=0;
+var audioCtx=null,soundOn=true,bgmTimer=null;
+
+function initBg(){
+var layer=document.getElementById('bgLayer');layer.innerHTML='';
+for(var i=0;i<18;i++){
+var el=document.createElement('div');el.className='leaf';
+var hue=120+Math.floor(Math.random()*80);
+el.style.cssText='left:'+Math.random()*100+'%;animation-duration:'+(10+Math.random()*15)+'s;animation-delay:'+(Math.random()*12)+'s;width:'+(3+Math.random()*8)+'px;height:'+(3+Math.random()*8)+'px;border-radius:50%;background:hsl('+hue+','+(60+Math.random()*30)+'%,'+(45+Math.random()*25)+'%);opacity:'+(.08+Math.random()*.12)+';position:absolute;bottom:-20px;';
+layer.appendChild(el);
+}
+}
+
+function initLevel(){
+var L=LEVELS[currentLevel];COLS=L.cols;ROWS=L.rows;
+movesLeft=L.moves;score=0;comboCount=0;selected=null;isProcessing=false;gameActive=true;
+document.getElementById('levelBadge').textContent=L.name;
+updateScore();updateMoves();
+targetData={};totalTarget=0;targetFound=0;
+L.targets.forEach(function(t){targetData[t.icon]={name:t.name,total:t.count,found:0,color:t.color};totalTarget+=t.count});
+renderTargets();createBoard(L.types);renderBoard();
+}
+
+function createBoard(types){
+board=[];
+for(var r=0;r<ROWS;r++){board[r]=[];for(var c=0;c<COLS;c++){
+var icon;
+do{icon=types[Math.floor(Math.random()*types.length)]}
+while((r>=2&&board[r-1][c]===icon&&board[r-2][c]===icon)||(c>=2&&board[r][c-1]===icon&&board[r][c-2]===icon));
+board[r][c]=icon;
+}}
+}
+
+function renderBoard(){
+var g=document.getElementById('grid');g.innerHTML='';
+g.style.gridTemplateColumns='repeat('+COLS+',1fr)';
+for(var r=0;r<ROWS;r++)for(var c=0;c<COLS;c++)(function(r,c){
+var cell=document.createElement('div');cell.className='cell';cell.dataset.r=r;cell.dataset.c=c;
+cell.innerHTML=ICONS[board[r][c]]||'';
+cell.addEventListener('click',function(){onCellClick(r,c)});g.appendChild(cell);
+})(r,c);
+}
+
+function getCell(r,c){return document.querySelector('.cell[data-r="'+r+'"][data-c="'+c+'"]')}
+
+function onCellClick(r,c){
+if(isProcessing||movesLeft<=0||!gameActive)return;
+if(selected){
+if(selected.r===r&&selected.c===c){deselect();return}
+if(isAdjacent(selected.r,selected.c,r,c)){swapAndCheck(selected.r,selected.c,r,c)}
+else{deselect();select(r,c)}
+}else select(r,c);
+}
+
+function select(r,c){selected={r:r,c:c};var cell=getCell(r,c);if(cell)cell.classList.add('selected');sndSelect()}
+function deselect(){if(!selected)return;var cell=getCell(selected.r,selected.c);if(cell)cell.classList.remove('selected');selected=null}
+function isAdjacent(r1,c1,r2,c2){return Math.abs(r1-r2)+Math.abs(c1-c2)===1}
+
+function swapAndCheck(r1,c1,r2,c2){
+isProcessing=true;deselect();
+swap(r1,c1,r2,c2);renderBoard();
+var a=getCell(r1,c1),b=getCell(r2,c2);
+if(a)a.classList.add('swapping');if(b)b.classList.add('swapping');
+setTimeout(function(){
+var matches=findMatches();
+if(matches.length>0){movesLeft--;updateMoves();processMatches(matches)}
+else{swap(r1,c1,r2,c2);renderBoard();showHint('无法消除！');sndWrong();setTimeout(checkGameOver,300)}
+isProcessing=false},220);
+}
+
+function swap(r1,c1,r2,c2){var t=board[r1][c1];board[r1][c1]=board[r2][c2];board[r2][c2]=t}
+
+function findMatches(){
+var matched={};
+for(var r=0;r<ROWS;r++)for(var c=0;c<COLS-2;c++){var v=board[r][c];if(v&&v===board[r][c+1]&&v===board[r][c+2]){matched[r+','+c]=true;matched[r+','+(c+1)]=true;matched[r+','+(c+2)]=true}}
+for(var c=0;c<COLS;c++)for(var r=0;r<ROWS-2;r++){var v=board[r][c];if(v&&v===board[r+1][c]&&v===board[r+2][c]){matched[r+','+c]=true;matched[(r+1)+','+c]=true;matched[(r+2)+','+c]=true}}
+var result=[];
+Object.keys(matched).forEach(function(key){var p=key.split(',');result.push({r:parseInt(p[0]),c:parseInt(p[1])})});
+return result;
+}
+
+function processMatches(matches){
+comboCount++;
+var icons={};
+matches.forEach(function(m){var icon=board[m.r][m.c];icons[icon]=(icons[icon]||0)+1});
+matches.forEach(function(m){var cell=getCell(m.r,m.c);if(cell)cell.classList.add('matching')});
+sndMatch();
+if(comboCount>1){sndCombo();showComboPopup(comboCount)}
+Object.keys(icons).forEach(function(icon){
+var cnt=icons[icon];
+if(targetData[icon]){var tf=Math.min(cnt,targetData[icon].total-targetData[icon].found);targetData[icon].found+=tf;targetFound+=tf;score+=cnt*10;if(comboCount>1)score+=comboCount*15}
+else score+=cnt*5;
+});
+updateScore();renderTargets();
+setTimeout(function(){
+matches.forEach(function(m){board[m.r][m.c]=''});
+dropBlocks();fillEmpty();renderBoard();
+for(var cc=0;cc<COLS;cc++)for(var rr=0;rr<ROWS;rr++){var cell=getCell(rr,cc);if(cell&&board[rr][cc])cell.classList.add('falling')}
+setTimeout(function(){var nm=findMatches();if(nm.length>0)processMatches(nm);else comboCount=0;setTimeout(checkGameOver,200)},280);
+},350);
+}
+
+function dropBlocks(){for(var c=0;c<COLS;c++){var er=ROWS-1;for(var r=ROWS-1;r>=0;r--)if(board[r][c]!==''){if(r!==er){board[er][c]=board[r][c];board[r][c]=''}er--}}}
+function fillEmpty(){var types=LEVELS[currentLevel].types;for(var r=0;r<ROWS;r++)for(var c=0;c<COLS;c++)if(board[r][c]==='')board[r][c]=types[Math.floor(Math.random()*types.length)]}
+
+function showComboPopup(n){
+var el=document.createElement('div');el.className='combo-pop';
+el.textContent=n+'x COMBO!';
+document.body.appendChild(el);
+setTimeout(function(){el.remove()},900);
+}
+
+function renderTargets(){
+var c=document.getElementById('targetItems');c.innerHTML='';
+Object.keys(targetData).forEach(function(icon){
+var info=targetData[icon];
+var el=document.createElement('div');
+el.className='target-item'+(info.found>=info.total?' done':'');
+el.id='targ-'+icon;
+el.innerHTML='<span class="t-icon">'+ICONS[icon]+'</span>'+info.name+' <span class="t-count">'+info.found+'/'+info.total+'</span>';
+c.appendChild(el);
+});
+}
+
+function updateScore(){document.getElementById('scoreBox').textContent=score+' 分'}
+function updateMoves(){document.getElementById('movesCount').textContent=movesLeft}
+
+function checkGameOver(){
+if(targetFound>=totalTarget){gameActive=false;if(currentLevel<LEVELS.length-1)showWin();else showFinalWin()}
+else if(movesLeft<=0){gameActive=false;showFail()}
+}
+
+function showWin(){
+document.getElementById('winOverlay').classList.add('show');
+document.getElementById('winIcon').innerHTML=ICONS['rabbit']||'';
+document.getElementById('winTitle').textContent=LEVELS[currentLevel].name+' 通关！';
+document.getElementById('winText').textContent='分数 '+score+' ，大象离自由更近了！';
+document.getElementById('winBtn').textContent=currentLevel===0?'挑战第二关':'继续';
+sndWin();
+}
+
+function showFinalWin(){
+document.getElementById('winOverlay').classList.remove('show');
+document.getElementById('finalOverlay').classList.add('show');
+spawnConfetti();sndFinal();
+}
+
+function showFail(){document.getElementById('failOverlay').classList.add('show');sndFail()}
+
+function showHint(msg){var el=document.getElementById('hintText');el.textContent=msg;el.style.color='#ff6b35';setTimeout(function(){el.textContent='交换相邻动物，3个以上相同即可消除';el.style.color='#aaa'},1800)}
+
+function initAudio(){if(!audioCtx)try{audioCtx=new(window.AudioContext||window.webkitAudioContext)()}catch(e){}}
+
+function playTone(freq,dur,type,vol){
+if(!soundOn||!audioCtx)return;
+var o=audioCtx.createOscillator(),g=audioCtx.createGain();
+o.type=type||'sine';o.frequency.value=freq||440;
+g.gain.value=vol||0.12;g.gain.exponentialRampToValueAtTime(0.001,audioCtx.currentTime+(dur||0.15));
+o.connect(g);g.connect(audioCtx.destination);o.start();o.stop(audioCtx.currentTime+(dur||0.15));
+}
+function sndSelect(){playTone(700,0.06,'sine',0.08)}
+function sndSwap(){playTone(900,0.08,'sine',0.1)}
+function sndMatch(){playTone(880,0.15,'triangle',0.13);setTimeout(function(){playTone(1100,0.15,'triangle',0.1)},60)}
+function sndCombo(){playTone(1200,0.08,'square',0.06);setTimeout(function(){playTone(1500,0.08,'square',0.05)},40);setTimeout(function(){playTone(1800,0.12,'square',0.06)},80)}
+function sndWrong(){playTone(180,0.25,'sawtooth',0.1)}
+function sndWin(){[523,659,784,1047].forEach(function(f,i){setTimeout(function(){playTone(f,0.3,'sine',0.13)},i*120)})}
+function sndFail(){[400,340,280].forEach(function(f,i){setTimeout(function(){playTone(f,0.3,'sawtooth',0.1)},i*200)})}
+function sndFinal(){[523,659,784,1047,1319,1568].forEach(function(f,i){setTimeout(function(){playTone(f,0.35,'sine',0.13)},i*100)})}
+
+function startBGM(){
+if(bgmTimer||!soundOn)return;
+var notes=[262,294,330,349,392,440,494,523];
+var melody=[0,2,4,5,5,5,5,4,5,4,2,0,2,3,4,5,5,4,3,2,0,2,4,5,7,7,6,5,4,3,0,0];
+var i=0;
+function playNext(){
+if(!soundOn){stopBGM();return;}
+var idx=melody[i%melody.length];
+if(idx>=0)playTone(notes[idx],0.10,'triangle',0.035);
+i++;
+bgmTimer=setTimeout(playNext,260+Math.random()*80);
+}
+playNext();
+}
+function stopBGM(){if(bgmTimer){clearTimeout(bgmTimer);bgmTimer=null}}
+
+function spawnConfetti(){
+var colors=['#ff6b35','#f7c948','#ec4899','#06b6d4','#22c55e','#a855f7'];
+for(var i=0;i<80;i++)setTimeout(function(){
+var c=document.createElement('div');c.className='confetti';
+c.style.left=Math.random()*100+'%';c.style.top='-20px';
+c.style.background=colors[Math.floor(Math.random()*colors.length)];
+c.style.animationDuration=(2+Math.random()*3)+'s';
+c.style.width=(5+Math.random()*10)+'px';c.style.height=(5+Math.random()*10)+'px';
+c.style.borderRadius=Math.random()>.5?'50%':'2px';
+document.body.appendChild(c);setTimeout(function(){c.remove()},5000);
+},i*20);
+}
+
+function startGame(){document.getElementById('startOverlay').classList.remove('show');currentLevel=0;initAudio();initLevel();startBGM()}
+function nextLevel(){currentLevel++;if(currentLevel>=LEVELS.length){showFinalWin();return}document.getElementById('winOverlay').classList.remove('show');initLevel()}
+function retryLevel(){document.getElementById('failOverlay').classList.remove('show');initLevel()}
+function giveUp(){document.getElementById('failOverlay').classList.remove('show');document.getElementById('startOverlay').classList.add('show');stopBGM()}
+function restartGame(){document.getElementById('finalOverlay').classList.remove('show');document.getElementById('startOverlay').classList.add('show');stopBGM()}
+
+document.getElementById('startBtn').addEventListener('click',startGame);
+document.getElementById('winBtn').addEventListener('click',nextLevel);
+document.getElementById('retryBtn').addEventListener('click',retryLevel);
+document.getElementById('giveUpBtn').addEventListener('click',giveUp);
+document.getElementById('restartBtn').addEventListener('click',restartGame);
+document.getElementById('soundBtn').addEventListener('click',function(){
+soundOn=!soundOn;
+this.innerHTML=soundOn?'\u{1F50A}':'\u{1F507}';
+this.style.opacity=soundOn?1:0.4;
+if(soundOn){initAudio();if(!bgmTimer)startBGM()}else{stopBGM()}
+});
+initBg();
+})();
+</script>
+</body>
+</html>
